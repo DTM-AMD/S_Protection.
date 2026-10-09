@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Seed Protection - Autonomous Real-Time Streak Tracker</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Font: Inter & Orbitron -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['Orbitron', 'monospace'],
+          },
+          colors: {
+            brand: {
+              50: '#eefbff',
+              100: '#d5f5ff',
+              400: '#38bdf8',
+              500: '#0284c7',
+              600: '#0369a1',
+              900: '#0c4a6e',
+            },
+            neon: {
+              cyan: '#00f3ff',
+              purple: '#b000ff',
+              emerald: '#00ffa3',
+              crimson: '#ff0055',
+              amber: '#ffaa00'
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'glow-pulse': 'glow 2s infinite alternate',
+            'float': 'float 6s ease-in-out infinite',
+          },
+          keyframes: {
+            glow: {
+              '0%': { boxShadow: '0 0 15px rgba(0, 243, 255, 0.3)' },
+              '100%': { boxShadow: '0 0 35px rgba(0, 243, 255, 0.8), 0 0 15px rgba(176, 0, 255, 0.5)' },
+            },
+            float: {
+              '0%, 100%': { transform: 'translateY(0px)' },
+              '50%': { transform: 'translateY(-10px)' },
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #05070f;
+      color: #f3f4f6;
+      overflow-x: hidden;
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* Cyber Glassmorphism Effect */
+    .glass-card {
+      background: rgba(13, 18, 36, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    .glass-card-glow {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(0, 243, 255, 0.25);
+      box-shadow: 0 0 25px rgba(0, 243, 255, 0.15), inset 0 0 15px rgba(0, 243, 255, 0.05);
+    }
+
+    .glass-button-danger {
+      background: linear-gradient(135deg, rgba(255, 0, 85, 0.2) 0%, rgba(150, 0, 40, 0.4) 100%);
+      border: 1px solid rgba(255, 0, 85, 0.5);
+      box-shadow: 0 0 20px rgba(255, 0, 85, 0.2);
+    }
+
+    .glass-button-danger:hover {
+      background: linear-gradient(135deg, rgba(255, 0, 85, 0.4) 0%, rgba(200, 0, 60, 0.7) 100%);
+      box-shadow: 0 0 35px rgba(255, 0, 85, 0.6);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00f3ff;
+    }
+
+    /* Radial Gradient BG for Canvas */
+    #aurora-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    .badge-locked {
+      filter: grayscale(100%) opacity(0.35);
+      border-color: rgba(255, 255, 255, 0.05);
+    }
+
+    .badge-unlocked {
+      animation: float 5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="min-h-screen text-slate-100 flex flex-col justify-between selection:bg-neon-cyan selection:text-black">
+
+  <!-- Background Animated Aurora Canvas -->
+  <canvas id="aurora-canvas"></canvas>
+
+  <!-- Top Navigation Header -->
+  <header class="w-full border-b border-white/10 glass-card sticky top-0 z-40 px-4 lg:px-8 py-3.5">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-neon-cyan/20 to-neon-purple/20 border border-neon-cyan/40 flex items-center justify-center text-neon-cyan shadow-[0_0_15px_rgba(0,243,255,0.3)]">
+          <i data-lucide="shield" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="font-mono font-bold text-lg tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-neon-cyan via-white to-neon-purple">SEED PROTECTION</h1>
+          <p class="text-[10px] text-slate-400 tracking-widest uppercase font-mono">Autonomous Energy Ledger</p>
+        </div>
+      </div>
+
+      <!-- Quick Audio & Stats Controls -->
+      <div class="flex items-center gap-3">
+        <button id="sound-toggle-btn" class="p-2.5 rounded-xl border border-white/10 glass-card text-slate-300 hover:text-white hover:border-neon-cyan/40 transition-all" title="Toggle Audio FX">
+          <i id="sound-icon" data-lucide="volume-2" class="w-4 h-4"></i>
+        </button>
+        <button id="info-btn" class="p-2.5 rounded-xl border border-white/10 glass-card text-slate-300 hover:text-white hover:border-neon-cyan/40 transition-all" title="Protocol Information">
+          <i data-lucide="info" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="max-w-7xl mx-auto px-4 lg:px-8 py-8 w-full flex-grow space-y-8">
+
+    <!-- Top Grid: Live Dashboard Core + Next Milestone Progress -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+      
+      <!-- Central Hero Timer Card (8 Cols) -->
+      <div class="lg:col-span-8 glass-card-glow rounded-3xl p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden group">
+        <!-- Ambient Glow Backdrops -->
+        <div class="absolute -top-24 -left-24 w-72 h-72 bg-neon-cyan/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -right-24 w-72 h-72 bg-neon-purple/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <!-- Top Status Row -->
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            <span>AUTONOMOUS STREAM ACTIVE</span>
+          </div>
+          <div id="rank-badge" class="px-3 py-1.5 rounded-full bg-neon-purple/10 border border-neon-purple/30 text-neon-purple text-xs font-mono font-semibold">
+            RANK: NOVICE
+          </div>
+        </div>
+
+        <!-- Timer Display Core -->
+        <div class="my-4 text-center">
+          <p class="text-xs font-mono uppercase tracking-widest text-slate-400 mb-2">CURRENT CONTINUOUS STREAK</p>
+          
+          <!-- Days Counter -->
+          <div class="mb-4">
+            <span id="streak-days" class="font-mono font-black text-6xl sm:text-8xl lg:text-9xl tracking-tight text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-100 to-slate-400 drop-shadow-[0_0_35px_rgba(255,255,255,0.2)]">0</span>
+            <span class="font-mono text-xl sm:text-3xl text-neon-cyan ml-2 uppercase tracking-widest">Days</span>
+          </div>
+
+          <!-- Hours, Minutes, Seconds, Milliseconds Digital Counter -->
+          <div class="grid grid-cols-4 gap-2 sm:gap-4 max-w-md mx-auto font-mono">
+            <div class="p-3 rounded-2xl glass-card border border-white/5">
+              <div id="streak-hours" class="text-2xl sm:text-4xl font-bold text-slate-100">00</div>
+              <div class="text-[10px] sm:text-xs text-slate-400 tracking-wider">HOURS</div>
+            </div>
+            <div class="p-3 rounded-2xl glass-card border border-white/5">
+              <div id="streak-minutes" class="text-2xl sm:text-4xl font-bold text-slate-100">00</div>
+              <div class="text-[10px] sm:text-xs text-slate-400 tracking-wider">MINS</div>
+            </div>
+            <div class="p-3 rounded-2xl glass-card border border-white/5">
+              <div id="streak-seconds" class="text-2xl sm:text-4xl font-bold text-slate-100">00</div>
+              <div class="text-[10px] sm:text-xs text-slate-400 tracking-wider">SECS</div>
+            </div>
+            <div class="p-3 rounded-2xl glass-card border border-white/5">
+              <div id="streak-ms" class="text-2xl sm:text-4xl font-bold text-neon-cyan">00</div>
+              <div class="text-[10px] sm:text-xs text-slate-400 tracking-wider">MS</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Prominent Glowing "I FAPPED" Reset Action Button -->
+        <div class="mt-8 flex flex-col items-center justify-center border-t border-white/10 pt-6">
+          <button id="fapped-trigger-btn" class="w-full sm:w-auto px-8 py-4 rounded-2xl glass-button-danger text-rose-100 font-mono font-bold tracking-widest uppercase flex items-center justify-center gap-3 transition-all transform active:scale-95 group/btn">
+            <i data-lucide="zap-off" class="w-5 h-5 text-rose-400 group-hover/btn:rotate-12 transition-transform"></i>
+            <span>I FAPPED (RESET TIMER)</span>
+          </button>
+          <p class="text-[11px] text-slate-500 mt-2 font-mono">Resets streak to 00d 00h 00m & logs duration to history</p>
+        </div>
+      </div>
+
+      <!-- Right Column: Personal Stats & Next Badge Progress (4 Cols) -->
+      <div class="lg:col-span-4 flex flex-col gap-6">
+        
+        <!-- Next Target Badge Tracker -->
+        <div class="glass-card rounded-3xl p-6 relative overflow-hidden flex flex-col justify-between h-full">
+          <div>
+            <div class="flex items-center justify-between mb-4">
+              <span class="text-xs font-mono uppercase text-slate-400 tracking-wider">NEXT UNLOCK TARGET</span>
+              <span id="next-badge-days" class="text-xs font-mono text-neon-cyan">3 Days</span>
+            </div>
+
+            <!-- Target Badge Preview -->
+            <div class="flex items-center gap-4 bg-slate-900/50 p-4 rounded-2xl border border-white/5 mb-6">
+              <div id="next-badge-icon" class="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 border border-indigo-500/40 flex items-center justify-center text-3xl">
+                🛡️
+              </div>
+              <div class="overflow-hidden">
+                <h4 id="next-badge-title" class="font-bold text-white truncate">Mind Clarity</h4>
+                <p id="next-badge-desc" class="text-xs text-slate-400 line-clamp-2">Brain fog lifts as dopamine receptors recover.</p>
+              </div>
+            </div>
+
+            <!-- Visual Progress Bar -->
+            <div class="space-y-2">
+              <div class="flex justify-between text-xs font-mono text-slate-400">
+                <span>Progress</span>
+                <span id="next-badge-percent">0%</span>
+              </div>
+              <div class="w-full bg-slate-800 rounded-full h-3 overflow-hidden border border-white/5 p-0.5">
+                <div id="next-badge-bar" class="bg-gradient-to-r from-neon-cyan to-neon-purple h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+              </div>
+              <div id="next-badge-countdown" class="text-right text-[11px] font-mono text-slate-400 pt-1">
+                Time Remaining: --
+              </div>
+            </div>
+          </div>
+
+          <!-- Motivational Quote Block -->
+          <div class="mt-6 pt-4 border-t border-white/10">
+            <p id="quote-text" class="text-xs italic text-slate-300 text-center">"Greatness is not a single act, but a continuous habit of self-mastery."</p>
+          </div>
+        </div>
+
+        <!-- Quick Stats Overview -->
+        <div class="glass-card rounded-3xl p-6 grid grid-cols-2 gap-4">
+          <div class="p-3 bg-slate-900/40 rounded-2xl border border-white/5">
+            <p class="text-[10px] font-mono uppercase text-slate-400">PERSONAL BEST</p>
+            <p id="pb-streak-display" class="font-mono text-lg font-bold text-neon-cyan mt-1">0d 00h</p>
+          </div>
+          <div class="p-3 bg-slate-900/40 rounded-2xl border border-white/5">
+            <p class="text-[10px] font-mono uppercase text-slate-400">AVG STREAK</p>
+            <p id="avg-streak-display" class="font-mono text-lg font-bold text-neon-purple mt-1">0d 00h</p>
+          </div>
+          <div class="p-3 bg-slate-900/40 rounded-2xl border border-white/5">
+            <p class="text-[10px] font-mono uppercase text-slate-400">UNLOCKED BADGES</p>
+            <p id="unlocked-count-display" class="font-mono text-lg font-bold text-neon-emerald mt-1">0 / 17</p>
+          </div>
+          <div class="p-3 bg-slate-900/40 rounded-2xl border border-white/5">
+            <p class="text-[10px] font-mono uppercase text-slate-400">TOTAL RELAPSES</p>
+            <p id="relapse-count-display" class="font-mono text-lg font-bold text-rose-400 mt-1">0</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Badge Hall of Honor (1d to 10,000+ Days) -->
+    <section class="glass-card rounded-3xl p-6 sm:p-8">
+      <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+        <div>
+          <h2 class="font-mono text-xl font-bold text-white flex items-center gap-2">
+            <i data-lucide="award" class="w-5 h-5 text-neon-cyan"></i>
+            <span>HALL OF MASTERY (1 TO 10,000+ DAYS)</span>
+          </h2>
+          <p class="text-xs text-slate-400 mt-1">Badges unlock automatically as real time progresses. No manual selection permitted.</p>
+        </div>
+        
+        <!-- Filter Tabs -->
+        <div class="flex items-center gap-2 p-1 bg-slate-900/80 rounded-2xl border border-white/10 text-xs font-mono">
+          <button id="filter-all" class="px-3 py-1.5 rounded-xl bg-neon-cyan/20 text-neon-cyan font-bold transition-all">ALL</button>
+          <button id="filter-unlocked" class="px-3 py-1.5 rounded-xl text-slate-400 hover:text-white transition-all">UNLOCKED</button>
+          <button id="filter-locked" class="px-3 py-1.5 rounded-xl text-slate-400 hover:text-white transition-all">LOCKED</button>
+        </div>
+      </div>
+
+      <!-- Badges Grid Container -->
+      <div id="badges-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <!-- Rendered dynamically by JS -->
+      </div>
+    </section>
+
+    <!-- Relapse History Ledger -->
+    <section class="glass-card rounded-3xl p-6 sm:p-8">
+      <div class="flex items-center justify-between mb-6">
+        <h2 class="font-mono text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="history" class="w-5 h-5 text-neon-purple"></i>
+          <span>STREAK HISTORY & RELAPSE LEDGER</span>
+        </h2>
+        <button id="clear-history-btn" class="text-xs font-mono text-slate-400 hover:text-rose-400 transition-colors flex items-center gap-1">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> Clear History
+        </button>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm text-slate-300">
+          <thead class="bg-slate-900/60 font-mono text-xs text-slate-400 uppercase tracking-wider border-b border-white/10">
+            <tr>
+              <th class="p-3 sm:p-4 rounded-l-xl">Attempt #</th>
+              <th class="p-3 sm:p-4">Start Date</th>
+              <th class="p-3 sm:p-4">Reset Date</th>
+              <th class="p-3 sm:p-4">Streak Duration</th>
+              <th class="p-3 sm:p-4 rounded-r-xl">Outcome</th>
+            </tr>
+          </thead>
+          <tbody id="history-table-body" class="divide-y divide-white/5 font-mono">
+            <!-- Rendered dynamically -->
+          </tbody>
+        </table>
+      </div>
+      <div id="empty-history-msg" class="text-center py-8 text-slate-500 text-xs font-mono">
+        No relapses recorded. Your ledger is immaculate!
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="w-full border-t border-white/10 glass-card py-6 px-4 text-center text-xs text-slate-500 font-mono">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <p>SEED PROTECTION PROTOCOL &bull; AUTONOMOUS LEDGER V4.0</p>
+      <p class="text-slate-400">Your energy is your life's currency. Protect it at all costs.</p>
+    </div>
+  </footer>
+
+  <!-- Modal: Confirmation for "I FAPPED" -->
+  <div id="reset-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="glass-card max-w-md w-full rounded-3xl p-6 sm:p-8 border border-rose-500/40 relative transform scale-95 transition-transform duration-300" id="reset-modal-content">
+      <div class="w-16 h-16 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center mx-auto mb-4">
+        <i data-lucide="alert-triangle" class="w-8 h-8"></i>
+      </div>
+      <h3 class="font-mono text-xl font-bold text-center text-white mb-2">LOG A RELAPSE?</h3>
+      <p class="text-xs text-slate-300 text-center mb-6 leading-relaxed">
+        Are you sure you want to reset your timer? Your current streak duration will be locked into your permanent history log, and all badges will return to locked status until re-earned.
+      </p>
+
+      <div class="flex gap-3">
+        <button id="cancel-reset-btn" class="flex-1 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-mono text-xs font-bold transition-all">
+          CANCEL (HOLD THE LINE)
+        </button>
+        <button id="confirm-reset-btn" class="flex-1 py-3.5 rounded-2xl glass-button-danger text-rose-100 font-mono text-xs font-bold transition-all">
+          CONFIRM RESET
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Auto Badge Unlock Celebration Overlay -->
+  <div id="unlock-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="glass-card-glow max-w-sm w-full rounded-3xl p-6 sm:p-8 text-center relative transform scale-95 transition-transform duration-300" id="unlock-modal-content">
+      <div id="unlock-badge-icon" class="w-24 h-24 rounded-3xl bg-gradient-to-br from-neon-cyan/20 to-neon-purple/20 border-2 border-neon-cyan flex items-center justify-center text-5xl mx-auto mb-4 animate-bounce">
+        🏆
+      </div>
+      <div class="px-3 py-1 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-[10px] font-mono font-bold uppercase inline-block mb-2">
+        MILESTONE REACHED!
+      </div>
+      <h3 id="unlock-badge-title" class="font-mono text-2xl font-black text-white mb-1">BADGE UNLOCKED</h3>
+      <p id="unlock-badge-days" class="text-sm font-mono text-neon-purple font-bold mb-3">DAY 7 - BRAIN REBOOT</p>
+      <p id="unlock-badge-desc" class="text-xs text-slate-300 mb-6 leading-relaxed">Your neural pathways begin restructuring for natural dopamine sensitivity.</p>
+
+      <button id="close-unlock-btn" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-neon-cyan to-neon-purple text-black font-mono text-xs font-bold uppercase tracking-wider transition-all transform hover:scale-105">
+        CLAIM & CONTINUE
+      </button>
+    </div>
+  </div>
+
+  <!-- JavaScript Logic -->
+  <script>
+
+    // Milestone Badges Definition (1 Day up to 10,000 Days)
+    const MILESTONE_BADGES = [
+      { day: 1, title: "Spark of Will", icon: "🌱", desc: "First 24 hours completed. The journey of 10,000 miles begins.", category: "Initiate" },
+      { day: 3, title: "Mind Clarity", icon: "🛡️", desc: "Dopamine withdrawal peak passed. Mental focus starts sharpening.", category: "Initiate" },
+      { day: 7, title: "Neural Reboot", icon: "⚡", desc: "One full week clean. Sleep quality and vitality surge.", category: "Novice" },
+      { day: 14, title: "Inner Resilience", icon: "🔥", desc: "Two weeks strong. Energy levels stabilize and discipline builds.", category: "Novice" },
+      { day: 30, title: "Dopamine Reset", icon: "💎", desc: "One month pure. Receptors normalized. Natural drive restored.", category: "Adept" },
+      { day: 60, title: "Aura Cleansing", icon: "🔮", desc: "Two months of energy preservation. Presence and confidence radiate.", category: "Adept" },
+      { day: 90, title: "Full Rebirth", icon: "🦅", desc: "The legendary 90-day reset. Old neural pathways wither away.", category: "Master" },
+      { day: 180, title: "Monk Focus", icon: "🧘", desc: "Half a year of complete self-mastery. Impulses fully conquered.", category: "Master" },
+      { day: 365, title: "Solar Orbit", icon: "👑", desc: "One full year of Seed Protection. A completely transformed human.", category: "Grandmaster" },
+      { day: 400, title: "Titan Stride", icon: "🗿", desc: "Passed the 400-day threshold. Physical and mental vigor at peak.", category: "Grandmaster" },
+      { day: 500, title: "Half-Millennium", icon: "⚔️", desc: "500 days of pure retention. Unshakable mental fortitude.", category: "Grandmaster" },
+      { day: 730, title: "Dual Orbit", icon: "🌟", desc: "Two years without a relapse. Living as a beacon of discipline.", category: "Immortal" },
+      { day: 1000, title: "Millennium Sage", icon: "🌌", desc: "1,000 days. You have transcended ordinary human impulse.", category: "Immortal" },
+      { day: 1500, title: "Cosmic Sentinel", icon: "☄️", desc: "1,500 days of preserved life energy. Boundless creativity.", category: "Godlike" },
+      { day: 2000, title: "Sovereign Essence", icon: "☯️", desc: "2,000 days clean. Total harmony of mind, body, and spirit.", category: "Godlike" },
+      { day: 5000, title: "Etherial Sovereign", icon: "🪐", desc: "5,000 days. Master of destiny and pure creative energy.", category: "Godlike" },
+      { day: 10000, title: "Eternal Titan", icon: "♾️", desc: "10,000 days. Absolute mastery over mortal desire.", category: "Eternal" }
+    ];
+
+    const MOTIVATIONAL_QUOTES = [
+      `"He who conquers himself is mightier than he who conquers a city."`,
+      `"Your vitality is your life's currency. Do not spend it cheap."`,
+      `"Discipline is choosing between what you want now and what you want most."`,
+      `"The pain of discipline weighs ounces; the pain of regret weighs tons."`,
+      `"Channel your energy upward into creation, power, and wisdom."`
+    ];
+
+    // Local Storage Keys
+    const STORAGE_KEY_START = "seed_protect_start_time";
+    const STORAGE_KEY_HISTORY = "seed_protect_history";
+    const STORAGE_KEY_SOUND = "seed_protect_sound_enabled";
+
+    // Application State Variables
+    let startTime = parseInt(localStorage.getItem(STORAGE_KEY_START)) || Date.now();
+    let historyLedger = JSON.parse(localStorage.getItem(STORAGE_KEY_HISTORY) || "[]");
+    let soundEnabled = localStorage.getItem(STORAGE_KEY_SOUND) !== "false";
+    let activeFilter = 'all';
+    let unlockedBadgesSet = new Set();
+    let audioCtx = null;
+
+    // Ensure Start Time is Saved
+    if (!localStorage.getItem(STORAGE_KEY_START)) {
+      localStorage.setItem(STORAGE_KEY_START, startTime);
+    }
+
+    // Dynamic Aurora Background Canvas Logic
+    const canvas = document.getElementById('aurora-canvas');
+    const ctx = canvas.getContext('2d');
+    let width, height;
+    let particles = [];
+
+    function resizeCanvas() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class Particle {
+      constructor() {
+        this.reset();
+      }
+      reset() {
+        this.x = Math.random() * width;
+        this.y = Math.random() * height;
+        this.size = Math.random() * 2 + 0.5;
+        this.vx = (Math.random() - 0.5) * 0.3;
+        this.vy = -Math.random() * 0.5 - 0.2;
+        this.alpha = Math.random() * 0.5 + 0.2;
+        this.color = Math.random() > 0.5 ? '#00f3ff' : '#b000ff';
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.y < 0 || this.x < 0 || this.x > width) {
+          this.reset();
+          this.y = height;
+        }
+      }
+      draw() {
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        ctx.fillStyle = this.color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    for (let i = 0; i < 60; i++) {
+      particles.push(new Particle());
+    }
+
+    function animateAurora() {
+      ctx.clearRect(0, 0, width, height);
+      
+      // Draw ambient gradient background
+      let grad = ctx.createRadialGradient(width/2, height/2, 100, width/2, height/2, width*0.8);
+      grad.addColorStop(0, 'rgba(10, 18, 40, 0.4)');
+      grad.addColorStop(1, 'rgba(5, 7, 15, 0.9)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, width, height);
+
+      particles.forEach(p => {
+        p.update();
+        p.draw();
+      });
+
+      requestAnimationFrame(animateAurora);
+    }
+    animateAurora();
+
+    function playAudioTone(freq, duration = 0.2, type = "sine") {
+      if (!soundEnabled) return;
+      try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        console.warn("Audio Context playback error:", e);
+      }
+    }
+
+    function playUnlockSound() {
+      playAudioTone(523.25, 0.15); // C5
+      setTimeout(() => playAudioTone(659.25, 0.15), 120); // E5
+      setTimeout(() => playAudioTone(783.99, 0.3, "triangle"), 240); // G5
+    }
+
+    function playResetSound() {
+      playAudioTone(300, 0.2, "sawtooth");
+      setTimeout(() => playAudioTone(150, 0.4, "sawtooth"), 150);
+    }
+
+    // Calculate live streak breakdown
+    function getElapsedData() {
+      const now = Date.now();
+      const diffMs = Math.max(0, now - startTime);
+      
+      const secondsTotal = Math.floor(diffMs / 1000);
+      const days = Math.floor(secondsTotal / (3600 * 24));
+      const hours = Math.floor((secondsTotal % (3600 * 24)) / 3600);
+      const minutes = Math.floor((secondsTotal % 3600) / 60);
+      const seconds = secondsTotal % 60;
+      const ms = Math.floor((diffMs % 1000) / 10);
+
+      return { diffMs, days, hours, minutes, seconds, ms };
+    }
+
+    // Format helper
+    function pad(num) {
+      return num.toString().padStart(2, '0');
+    }
+
+    // Update real-time loop
+    function updateTimerUI() {
+      const { diffMs, days, hours, minutes, seconds, ms } = getElapsedData();
+
+      // Update Hero Timer UI Elements
+      document.getElementById('streak-days').innerText = days;
+      document.getElementById('streak-hours').innerText = pad(hours);
+      document.getElementById('streak-minutes').innerText = pad(minutes);
+      document.getElementById('streak-seconds').innerText = pad(seconds);
+      document.getElementById('streak-ms').innerText = pad(ms);
+
+      // Determine Rank based on days
+      let rank = "Initiate";
+      if (days >= 1000) rank = "Millennium Sage";
+      else if (days >= 365) rank = "Solar Grandmaster";
+      else if (days >= 90) rank = "Reborn Master";
+      else if (days >= 30) rank = "Adept";
+      else if (days >= 7) rank = "Novice";
+
+      document.getElementById('rank-badge').innerText = `RANK: ${rank.toUpperCase()}`;
+
+      // Check Automatic Badge Unlocks
+      checkAutomaticBadgeUnlocks(days);
+
+      // Update Next Target Progress
+      updateNextTargetUI(days, diffMs);
+
+      // Request next animation frame
+      requestAnimationFrame(updateTimerUI);
+    }
+
+    function checkAutomaticBadgeUnlocks(currentDays) {
+      MILESTONE_BADGES.forEach(badge => {
+        if (currentDays >= badge.day) {
+          if (!unlockedBadgesSet.has(badge.day)) {
+            // Unlocked!
+            unlockedBadgesSet.add(badge.day);
+            renderBadgesGrid();
+            
+            // Trigger automatic celebration modal & audio if unlocked live
+            triggerUnlockCelebration(badge);
+          }
+        }
+      });
+    }
+
+    function triggerUnlockCelebration(badge) {
+      playUnlockSound();
+      
+      // Fire confetti
+      if (window.confetti) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }
+
+      // Populate Unlock Modal
+      document.getElementById('unlock-badge-icon').innerText = badge.icon;
+      document.getElementById('unlock-badge-title').innerText = badge.title;
+      document.getElementById('unlock-badge-days').innerText = `DAY ${badge.day} UNLOCKED`;
+      document.getElementById('unlock-badge-desc').innerText = badge.desc;
+
+      // Show Modal
+      const modal = document.getElementById('unlock-modal');
+      const content = document.getElementById('unlock-modal-content');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      content.classList.remove('scale-95');
+    }
+
+    function updateNextTargetUI(currentDays, currentDiffMs) {
+      const nextBadge = MILESTONE_BADGES.find(b => currentDays < b.day);
+      
+      if (!nextBadge) {
+        // Completed all standard badges
+        document.getElementById('next-badge-days').innerText = '10,000+ Days';
+        document.getElementById('next-badge-title').innerText = 'Eternal Sovereign';
+        document.getElementById('next-badge-desc').innerText = 'You have mastered all defined milestones. Infinity awaits.';
+        document.getElementById('next-badge-percent').innerText = '100%';
+        document.getElementById('next-badge-bar').style.width = '100%';
+        document.getElementById('next-badge-countdown').innerText = 'Status: Transcendence Reached';
+        return;
+      }
+
+      // Find previous target day bound
+      const prevBadge = MILESTONE_BADGES.slice().reverse().find(b => b.day <= currentDays);
+      const startMs = prevBadge ? prevBadge.day * 86400000 : 0;
+      const targetMs = nextBadge.day * 86400000;
+
+      const progressMs = Math.max(0, currentDiffMs - startMs);
+      const totalMsNeeded = targetMs - startMs;
+      const percent = Math.min(100, Math.max(0, (progressMs / totalMsNeeded) * 100));
+
+      const remainingMs = Math.max(0, targetMs - currentDiffMs);
+      const remSecsTotal = Math.floor(remainingMs / 1000);
+      const remDays = Math.floor(remSecsTotal / (3600 * 24));
+      const remHours = Math.floor((remSecsTotal % (3600 * 24)) / 3600);
+      const remMins = Math.floor((remSecsTotal % 3600) / 60);
+
+      document.getElementById('next-badge-icon').innerText = nextBadge.icon;
+      document.getElementById('next-badge-days').innerText = `${nextBadge.day} Days Target`;
+      document.getElementById('next-badge-title').innerText = nextBadge.title;
+      document.getElementById('next-badge-desc').innerText = nextBadge.desc;
+      document.getElementById('next-badge-percent').innerText = `${percent.toFixed(1)}%`;
+      document.getElementById('next-badge-bar').style.width = `${percent}%`;
+      document.getElementById('next-badge-countdown').innerText = `Time Remaining: ${remDays}d ${remHours}h ${remMins}m`;
+    }
+
+    function renderBadgesGrid() {
+      const container = document.getElementById('badges-grid');
+      container.innerHTML = '';
+
+      const filtered = MILESTONE_BADGES.filter(badge => {
+        const isUnlocked = unlockedBadgesSet.has(badge.day);
+        if (activeFilter === 'unlocked') return isUnlocked;
+        if (activeFilter === 'locked') return !isUnlocked;
+        return true;
+      });
+
+      filtered.forEach(badge => {
+        const isUnlocked = unlockedBadgesSet.has(badge.day);
+        const card = document.createElement('div');
+        
+        card.className = `glass-card p-4 rounded-2xl flex flex-col items-center text-center transition-all duration-300 relative group ${
+          isUnlocked 
+            ? 'border-neon-cyan/40 bg-slate-900/80 shadow-[0_0_15px_rgba(0,243,255,0.15)] hover:scale-105' 
+            : 'badge-locked hover:opacity-60'
+        }`;
+
+        card.innerHTML = `
+          <div class="text-3xl mb-2 ${isUnlocked ? 'animate-bounce' : ''}">${badge.icon}</div>
+          <span class="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+            isUnlocked ? 'bg-neon-cyan/20 text-neon-cyan' : 'bg-slate-800 text-slate-500'
+          } mb-1">DAY ${badge.day}</span>
+          <h4 class="font-bold text-xs text-white truncate w-full mb-1">${badge.title}</h4>
+          <p class="text-[10px] text-slate-400 line-clamp-2">${badge.desc}</p>
+          ${isUnlocked ? '<div class="absolute top-2 right-2 w-2 h-2 rounded-full bg-neon-cyan shadow-[0_0_8px_#00f3ff]"></div>' : ''}
+        `;
+
+        container.appendChild(card);
+      });
+
+      // Update overall badge stats count
+      document.getElementById('unlocked-count-display').innerText = `${unlockedBadgesSet.size} / ${MILESTONE_BADGES.length}`;
+    }
+
+    function renderHistoryTable() {
+      const tbody = document.getElementById('history-table-body');
+      const emptyMsg = document.getElementById('empty-history-msg');
+      tbody.innerHTML = '';
+
+      if (historyLedger.length === 0) {
+        emptyMsg.classList.remove('hidden');
+        document.getElementById('pb-streak-display').innerText = '0d 00h';
+        document.getElementById('avg-streak-display').innerText = '0d 00h';
+        document.getElementById('relapse-count-display').innerText = '0';
+        return;
+      }
+
+      emptyMsg.classList.add('hidden');
+
+      let maxDurationMs = 0;
+      let totalDurationMs = 0;
+
+      historyLedger.slice().reverse().forEach((item, index) => {
+        const attemptNum = historyLedger.length - index;
+        if (item.durationMs > maxDurationMs) maxDurationMs = item.durationMs;
+        totalDurationMs += item.durationMs;
+
+        const row = document.createElement('tr');
+        row.className = 'hover:bg-white/5 transition-colors';
+
+        const startDateFormatted = new Date(item.startTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+        const resetDateFormatted = new Date(item.resetTime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+        row.innerHTML = `
+          <td class="p-3 sm:p-4 text-slate-400">#${attemptNum}</td>
+          <td class="p-3 sm:p-4 text-slate-300">${startDateFormatted}</td>
+          <td class="p-3 sm:p-4 text-slate-300">${resetDateFormatted}</td>
+          <td class="p-3 sm:p-4 text-neon-cyan font-bold">${item.durationFormatted}</td>
+          <td class="p-3 sm:p-4"><span class="px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px]">RESET</span></td>
+        `;
+
+        tbody.appendChild(row);
+      });
+
+      // Update Stat Cards
+      const pbDays = Math.floor(maxDurationMs / (86400000));
+      const pbHours = Math.floor((maxDurationMs % 86400000) / 3600000);
+      document.getElementById('pb-streak-display').innerText = `${pbDays}d ${pbHours}h`;
+
+      const avgMs = totalDurationMs / historyLedger.length;
+      const avgDays = Math.floor(avgMs / (86400000));
+      const avgHours = Math.floor((avgMs % 86400000) / 3600000);
+      document.getElementById('avg-streak-display').innerText = `${avgDays}d ${avgHours}h`;
+
+      document.getElementById('relapse-count-display').innerText = historyLedger.length;
+    }
+
+    // Trigger Reset Modal ("I FAPPED")
+    const fappedBtn = document.getElementById('fapped-trigger-btn');
+    const resetModal = document.getElementById('reset-modal');
+    const resetModalContent = document.getElementById('reset-modal-content');
+    const cancelResetBtn = document.getElementById('cancel-reset-btn');
+    const confirmResetBtn = document.getElementById('confirm-reset-btn');
+
+    fappedBtn.addEventListener('click', () => {
+      resetModal.classList.remove('opacity-0', 'pointer-events-none');
+      resetModalContent.classList.remove('scale-95');
+    });
+
+    function closeResetModal() {
+      resetModal.classList.add('opacity-0', 'pointer-events-none');
+      resetModalContent.classList.add('scale-95');
+    }
+
+    cancelResetBtn.addEventListener('click', closeResetModal);
+
+    // Confirm Reset Handler
+    confirmResetBtn.addEventListener('click', () => {
+      const now = Date.now();
+      const elapsedMs = now - startTime;
+      
+      const { days, hours, minutes, seconds } = getElapsedData();
+      const durationFormatted = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+
+      // Record in ledger
+      historyLedger.push({
+        startTime: startTime,
+        resetTime: now,
+        durationMs: elapsedMs,
+        durationFormatted: durationFormatted
+      });
+
+      localStorage.setItem(STORAGE_KEY_HISTORY, JSON.stringify(historyLedger));
+
+      // Reset start time to NOW
+      startTime = now;
+      localStorage.setItem(STORAGE_KEY_START, startTime);
+
+      // Lock badges back
+      unlockedBadgesSet.clear();
+
+      playResetSound();
+      closeResetModal();
+      renderBadgesGrid();
+      renderHistoryTable();
+    });
+
+    // Close Unlock Modal
+    document.getElementById('close-unlock-btn').addEventListener('click', () => {
+      const modal = document.getElementById('unlock-modal');
+      const content = document.getElementById('unlock-modal-content');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+      content.classList.add('scale-95');
+    });
+
+    // Clear History Action
+    document.getElementById('clear-history-btn').addEventListener('click', () => {
+      if (confirm("Clear all recorded relapse ledger history? This cannot be undone.")) {
+        historyLedger = [];
+        localStorage.removeItem(STORAGE_KEY_HISTORY);
+        renderHistoryTable();
+      }
+    });
+
+    // Filter Buttons
+    document.getElementById('filter-all').addEventListener('click', (e) => setFilter('all', e.target));
+    document.getElementById('filter-unlocked').addEventListener('click', (e) => setFilter('unlocked', e.target));
+    document.getElementById('filter-locked').addEventListener('click', (e) => setFilter('locked', e.target));
+
+    function setFilter(filter, buttonEl) {
+      activeFilter = filter;
+      document.querySelectorAll('#filter-all, #filter-unlocked, #filter-locked').forEach(btn => {
+        btn.className = "px-3 py-1.5 rounded-xl text-slate-400 hover:text-white transition-all";
+      });
+      buttonEl.className = "px-3 py-1.5 rounded-xl bg-neon-cyan/20 text-neon-cyan font-bold transition-all";
+      renderBadgesGrid();
+    }
+
+    // Audio Sound Toggle Button
+    const soundBtn = document.getElementById('sound-toggle-btn');
+    const soundIcon = document.getElementById('sound-icon');
+
+    soundBtn.addEventListener('click', () => {
+      soundEnabled = !soundEnabled;
+      localStorage.setItem(STORAGE_KEY_SOUND, soundEnabled);
+      soundIcon.setAttribute('data-lucide', soundEnabled ? 'volume-2' : 'volume-x');
+      lucide.createIcons();
+    });
+
+    // Info Dialog
+    document.getElementById('info-btn').addEventListener('click', () => {
+      alert("Seed Protection Protocol:\n\n1. This app operates 100% autonomously in real-time.\n2. Manual time warp or day picking controls are strictly prohibited.\n3. Your continuous streak measures elapsed hours, minutes, and seconds continuously from your start timestamp.\n4. Reaching milestone thresholds automatically unlocks badges and rewards in your Hall of Mastery.\n5. Click 'I FAPPED' only when a streak resets to keep an honest ledger.");
+    });
+
+    // Random Motivational Quote Setup
+    const randomQuote = MOTIVATIONAL_QUOTES[Math.floor(Math.random() * MOTIVATIONAL_QUOTES.length)];
+    document.getElementById('quote-text').innerText = randomQuote;
+
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Initial render & timer kick-off
+    renderBadgesGrid();
+    renderHistoryTable();
+    updateTimerUI();
+
+  </script>
+</body>
+</html>
